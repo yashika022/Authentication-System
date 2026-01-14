@@ -9,8 +9,9 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from datetime import datetime, timedelta, timezone
 import qrcode_terminal
+import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 app.config["SECRET_KEY"] = "ChangeThisToAStrongRandomKey"
 
 # Rate limiting to stop brute force attacks
@@ -34,7 +35,7 @@ def is_strong_password(password):
 # Home route
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"message": "Auth System Running!"}), 200
+    return app.send_static_file("index.html")
 
 # Show QR code in browser
 @app.route("/show-qr", methods=["GET"])

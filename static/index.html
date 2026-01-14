@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Auth - MFA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">Secure Auth System</h1>
+        
+        <!-- Tabs -->
+        <div class="flex mb-6 border-b">
+            <button onclick="showTab('login')" id="login-tab" class="flex-1 py-2 font-semibold border-b-2 border-blue-600 text-blue-600">Login</button>
+            <button onclick="showTab('register')" id="register-tab" class="flex-1 py-2 font-semibold text-gray-500">Register</button>
+        </div>
+
+        <!-- Registration Form -->
+        <form id="register-form" class="hidden space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" id="reg-email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Name</label>
+                <input type="text" id="reg-name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="reg-password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                <p class="text-xs text-gray-500 mt-1">Min 8 chars, 1 upper, 1 lower, 1 digit</p>
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Register</button>
+        </form>
+
+        <!-- Login Form -->
+        <form id="login-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" id="login-email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="login-password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Login</button>
+        </form>
+
+        <!-- MFA Verification -->
+        <div id="mfa-section" class="hidden space-y-4">
+            <h2 class="text-xl font-bold text-center">MFA Required</h2>
+            <p class="text-sm text-center text-gray-600">Enter the code from your authenticator app</p>
+            <div>
+                <input type="text" id="mfa-otp" placeholder="123456" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-center text-2xl tracking-widest">
+            </div>
+            <button id="verify-btn" class="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700">Verify</button>
+        </div>
+
+        <!-- Registration Success / MFA Setup -->
+        <div id="setup-mfa" class="hidden space-y-4 text-center">
+            <h2 class="text-xl font-bold text-green-600">Registration Successful!</h2>
+            <p class="text-sm">Scan this QR code with Google Authenticator or Authy</p>
+            <img id="qr-image" src="" alt="QR Code" class="mx-auto border p-2">
+            <p class="text-xs font-mono bg-gray-100 p-2 break-all" id="mfa-secret-text"></p>
+            <div>
+                <input type="text" id="setup-otp" placeholder="Verify code to enable MFA" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-center">
+            </div>
+            <button id="enable-mfa-btn" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Enable MFA & Go to Login</button>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="hidden space-y-4 text-center">
+            <h2 class="text-xl font-bold text-blue-600">Welcome to Dashboard</h2>
+            <p id="user-info" class="text-gray-700"></p>
+            <button id="logout-btn" class="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700">Logout</button>
+        </div>
+
+        <div id="message" class="mt-4 text-sm text-center font-medium"></div>
+    </div>
+
+    <script>
+        const forms = {
+            login: document.getElementById('login-form'),
+            register: document.getElementById('register-form'),
+            mfa: document.getElementById('mfa-section'),
+            setup: document.getElementById('setup-mfa'),
+            dashboard: document.getElementById('dashboard')
+        };
+
+        const msg = document.getElementById('message');
+        let currentEmail = '';
+
+        function showTab(tab) {
+            msg.innerText = '';
+            if (tab === 'login') {
+                forms.login.classList.remove('hidden');
+                forms.register.classList.add('hidden');
+                document.getElementById('login-tab').className = 'flex-1 py-2 font-semibold border-b-2 border-blue-600 text-blue-600';
+                document.getElementById('register-tab').className = 'flex-1 py-2 font-semibold text-gray-500';
+            } else {
+                forms.login.classList.add('hidden');
+                forms.register.classList.remove('hidden');
+                document.getElementById('login-tab').className = 'flex-1 py-2 font-semibold text-gray-500';
+                document.getElementById('register-tab').className = 'flex-1 py-2 font-semibold border-b-2 border-blue-600 text-blue-600';
+            }
+        }
+
+        forms.register.onsubmit = async (e) => {
+            e.preventDefault();
+            msg.innerText = 'Registering...';
+            const data = {
+                email: document.getElementById('reg-email').value,
+                name: document.getElementById('reg-name').value,
+                password: document.getElementById('reg-password').value
+            };
+            try {
+                const res = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    currentEmail = data.email;
+                    forms.register.classList.add('hidden');
+                    document.getElementById('qr-image').src = result.mfa_qr_data_url;
+                    document.getElementById('mfa-secret-text').innerText = 'Secret: ' + result.mfa_secret;
+                    forms.setup.classList.remove('hidden');
+                    msg.innerText = '';
+                } else {
+                    msg.className = 'mt-4 text-sm text-center font-medium text-red-600';
+                    msg.innerText = result.error || 'Registration failed';
+                }
+            } catch (err) {
+                msg.innerText = 'Error connecting to server';
+            }
+        };
+
+        document.getElementById('enable-mfa-btn').onclick = async () => {
+            const otp = document.getElementById('setup-otp').value;
+            if (!otp) return msg.innerText = 'Enter OTP code';
+            const res = await fetch('/enable-mfa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: currentEmail, otp })
+            });
+            const result = await res.json();
+            if (res.ok) {
+                forms.setup.classList.add('hidden');
+                showTab('login');
+                msg.className = 'mt-4 text-sm text-center font-medium text-green-600';
+                msg.innerText = 'MFA enabled! You can now login.';
+            } else {
+                msg.className = 'mt-4 text-sm text-center font-medium text-red-600';
+                msg.innerText = result.error || 'MFA enablement failed';
+            }
+        };
+
+        forms.login.onsubmit = async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            currentEmail = email;
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const result = await res.json();
+            if (res.ok) {
+                if (result.message.includes('MFA required')) {
+                    forms.login.classList.add('hidden');
+                    forms.mfa.classList.remove('hidden');
+                    msg.innerText = '';
+                } else {
+                    loginSuccess(result.token, email);
+                }
+            } else {
+                msg.className = 'mt-4 text-sm text-center font-medium text-red-600';
+                msg.innerText = result.error || 'Login failed';
+            }
+        };
+
+        document.getElementById('verify-btn').onclick = async () => {
+            const otp = document.getElementById('mfa-otp').value;
+            const res = await fetch('/verify-mfa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: currentEmail, otp })
+            });
+            const result = await res.json();
+            if (res.ok) {
+                forms.mfa.classList.add('hidden');
+                loginSuccess(result.token, currentEmail);
+            } else {
+                msg.className = 'mt-4 text-sm text-center font-medium text-red-600';
+                msg.innerText = result.error || 'Verification failed';
+            }
+        };
+
+        function loginSuccess(token, email) {
+            localStorage.setItem('token', token);
+            forms.login.classList.add('hidden');
+            forms.dashboard.classList.remove('hidden');
+            document.getElementById('user-info').innerText = `Logged in as: ${email}`;
+            msg.className = 'mt-4 text-sm text-center font-medium text-green-600';
+            msg.innerText = 'Login Successful!';
+        }
+
+        document.getElementById('logout-btn').onclick = () => {
+            localStorage.removeItem('token');
+            forms.dashboard.classList.add('hidden');
+            showTab('login');
+            msg.innerText = 'Logged out';
+        };
+    </script>
+</body>
+</html>
