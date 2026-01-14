@@ -312,4 +312,4 @@ if __name__ == "__main__":
             else:
                 print(f"❌ Registration failed: {resp.get('error', 'Unknown error')}")
     else:
-        app.run(debug=True)
+        app.run(host="0.0.0.0", port=5000, debug=True)
