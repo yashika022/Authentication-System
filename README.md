@@ -20,25 +20,29 @@ This is a Flask-based secure authentication system implementing password hashing
 - qrcode for QR code generation
 - Flask-Limiter for rate limiting
 
+## User Interface
+
+The application provides a modern web interface at `http://localhost:5000` built with Tailwind CSS featuring:
+- **Login Tab:** Authenticate with email and password (with MFA support)
+- **Register Tab:** Create new account with strong password requirements
+- **MFA Setup:** Scan QR code with Google Authenticator or Authy during registration
+- **Dashboard:** Access after successful authentication
+
 ## API Endpoints
 
 ### GET /
-Returns a welcome message indicating the system is running.
+Returns the main HTML dashboard/login interface.
 
-**Response:**
-```json
-{
-  "message": "Auth System Running!"
-}
-```
+**Response:** HTML page with interactive login and registration forms
 
 ### POST /register
-Registers a new user.
+Registers a new user and generates MFA credentials.
 
-**Request Body:**
+**Request Body (JSON API):**
 ```json
 {
   "email": "user@example.com",
+  "name": "John Doe",
   "password": "StrongPass123"
 }
 ```
@@ -48,10 +52,13 @@ Registers a new user.
 {
   "message": "Registration successful",
   "mfa_qr_data_url": "data:image/png;base64,...",
-  "mfa_provisioning_uri": "otpauth://totp/...",
+  "mfa_provisioning_uri": "otpauth://totp/SecureAuthApp/user@example.com?secret=...",
   "mfa_secret": "BASE32SECRET"
 }
 ```
+
+**GET /register-form**
+Returns an HTML registration form for web-based registration.
 
 **Password Policy:**
 - Minimum 8 characters
@@ -59,8 +66,13 @@ Registers a new user.
 - At least one lowercase letter
 - At least one digit
 
+### GET /show-qr
+Displays a QR code in the browser for scanning with an authenticator app.
+
+**Response:** HTML page with QR code image and secret key
+
 ### POST /login
-Logs in a user.
+Authenticates a user with email and password.
 
 **Request Body:**
 ```json
@@ -70,22 +82,27 @@ Logs in a user.
 }
 ```
 
-**Response (Success, no MFA):**
+**Response (Success, no MFA enabled):**
 ```json
 {
   "message": "Login successful",
-  "token": "JWT_TOKEN"
+  "token": "JWT_TOKEN_HERE"
 }
 ```
 
-**Response (MFA required):**
+**Response (MFA enabled):**
 ```json
 {
   "message": "MFA required, verify using /verify-mfa"
 }
 ```
 
-Rate limited to 3 attempts per minute.
+**Rate Limit:** 3 attempts per minute
+
+### GET /login-form
+Returns an HTML login form for web-based authentication.
+
+**Response:** HTML page with login form
 
 ### POST /enable-mfa
 Enables MFA for a user after providing a valid OTP.
@@ -106,7 +123,7 @@ Enables MFA for a user after providing a valid OTP.
 ```
 
 ### POST /verify-mfa
-Verifies MFA OTP and issues JWT token.
+Verifies MFA OTP code and issues JWT token upon successful verification.
 
 **Request Body:**
 ```json
@@ -116,15 +133,22 @@ Verifies MFA OTP and issues JWT token.
 }
 ```
 
-**Response:**
+**Response (Success):**
 ```json
 {
   "message": "MFA verification successful",
-  "token": "JWT_TOKEN"
+  "token": "JWT_TOKEN_HERE"
 }
 ```
 
-Rate limited to 5 attempts per minute.
+**Response (Failure):**
+```json
+{
+  "error": "Invalid OTP"
+}
+```
+
+**Rate Limit:** 5 attempts per minute
 
 ### POST /logout
 Logs out the user (client-side token deletion).
@@ -175,12 +199,45 @@ Logs out the user (client-side token deletion).
 
 ## Running the Application
 
-1. Install dependencies: `pip install flask pyotp qrcode[pil] pillow bcrypt pyjwt flask-limiter`
-2. Run: `python app.py`
-3. Access at `http://localhost:5000`
+### Prerequisites
+- Python 3.12+
+- pip (Python package manager)
 
-## Testing
+### Installation Steps
 
-Run tests with: `python -m pytest test_app.py -v`
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yashika022/Authentication-System.git
+   cd Authentication-System
+   ```
 
-Tests cover successful flows and failure cases for all endpoints.
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+   
+   Or manually install:
+   ```bash
+   pip install flask pyotp qrcode[pil] pillow bcrypt pyjwt flask-limiter qrcode-terminal
+   ```
+
+3. **Run the application:**
+   ```bash
+   python app.py
+   ```
+
+4. **Access the web interface:**
+   - Open browser to `http://localhost:5000`
+   - Register a new account
+   - Scan QR code with Google Authenticator or Authy
+   - Login and verify MFA
+
+### Command-Line Registration
+
+You can also register users from the command line:
+
+```bash
+python app.py --register
+```
+
+This will prompt for email, name, and password, then display the MFA QR code in your terminal.
