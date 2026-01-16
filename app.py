@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import bcrypt
 import jwt
 import pyotp
@@ -35,7 +35,7 @@ def is_strong_password(password):
 # Home route
 @app.route("/", methods=["GET"])
 def home():
-    return app.send_static_file("index.html")
+    return send_from_directory(app.static_folder, "index.html")
 
 # Show QR code in browser
 @app.route("/show-qr", methods=["GET"])
